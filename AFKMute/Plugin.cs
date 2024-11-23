@@ -26,7 +26,6 @@ public sealed class Plugin : IDalamudPlugin
     {
         pluginInterface.Create<Services>();
         Configuration = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
-
         ConfigWindow = new ConfigWindow(this);
 
         WindowSystem.AddWindow(ConfigWindow);
@@ -42,7 +41,6 @@ public sealed class Plugin : IDalamudPlugin
         {
             HelpMessage = "Open config window."
         });
-
 
         PluginInterface.UiBuilder.Draw += DrawUI;
         // This adds a button to the plugin installer entry of this plugin which allows
