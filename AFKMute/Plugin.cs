@@ -1,91 +1,67 @@
-using AFKMute.Windows;
 using Dalamud.Game.Command;
-using Dalamud.IoC;
 using Dalamud.Plugin;
-using Dalamud.Interface.Windowing;
 using Dalamud.Plugin.Services;
 
-// This is my first ever plugin, it's far from perfect. I just wanted a solution to an issue that I had.
+// This is my first plugin, it's not perfect. I just wanted a solution to an issue that I had.
 
 namespace AFKMute;
 public sealed class Plugin : IDalamudPlugin
 {
-    [PluginService] internal static IDalamudPluginInterface PluginInterface { get; private set; } = null!;
-    [PluginService] internal static ITextureProvider TextureProvider { get; private set; } = null!;
-    [PluginService] internal static ICommandManager CommandManager { get; private set; } = null!;
-
-    private const string CommandName = "/afkmute";
-
     public Configuration Configuration { get; init; }
 
-    public readonly WindowSystem WindowSystem = new("AFKMute");
-    private ConfigWindow ConfigWindow { get; init; }
-
-
+    private uint lastOnlineState;
+    private bool toggleLock; 
+    
     public Plugin(IDalamudPluginInterface pluginInterface)
     {
         pluginInterface.Create<Services>();
-        Configuration = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
-        ConfigWindow = new ConfigWindow(this);
+        Configuration = Services.PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
 
-        WindowSystem.AddWindow(ConfigWindow);
-        CommandManager.AddHandler("/afkmute", new CommandInfo(ToggleStateCommand)
+        Services.CommandManager.AddHandler("/afkmute", new CommandInfo(ToggleStateCommand)
         {
             HelpMessage = "Toggles active state of plugin."
         });
-        CommandManager.AddHandler("/amt", new CommandInfo(ToggleStateCommand)
+        Services.CommandManager.AddHandler("/am", new CommandInfo(ToggleStateCommand)
         {
             HelpMessage = "Toggles active state of plugin."
         });
-        CommandManager.AddHandler("/afkmuteconfig", new CommandInfo(ConfigWindowCommand)
-        {
-            HelpMessage = "Open config window."
-        });
 
-        PluginInterface.UiBuilder.Draw += DrawUI;
-        // This adds a button to the plugin installer entry of this plugin which allows
-        // to toggle the display status of the configuration ui
         Services.Framework.Update += this.OnFrameworkTick;
         Services.PluginLog.Info("OnFrameworkTick hooked into Framework.Update");
-
-        PluginInterface.UiBuilder.OpenConfigUi += ToggleConfigUI;
-        Services.PluginLog.Info("Hello world.");
     }
 
-    private uint lastState;
-    private bool shouldNotToggle = false; 
-    
-    
     public void OnFrameworkTick(IFramework framework)
     {
-        var player = Services.ClientState.LocalPlayer;
-        if (player != null)
+        var localPlayer = Services.ClientState.LocalPlayer; // Grab the current LocalPlayer
+        if (localPlayer != null) // If it exists, we can go ahead:
         {
-            var onsValue = player.OnlineStatus.Value.RowId;
-            Services.GameConfig.TryGet(Dalamud.Game.Config.SystemConfigOption.IsSndMaster, out uint sndMasterMuted);
-            if (lastState != 17)
+            var onlineState = localPlayer.OnlineStatus.Value.RowId; // Get the current OnlineState as a Lumina RowId
+            Services.GameConfig.TryGet(Dalamud.Game.Config.SystemConfigOption.IsSndMaster, out uint sndMasterMuted); // Get the current state of the Master Volume mute
+            if (lastOnlineState != 17) // If _lastOnlineState wasn't AFK last, then go ahead:
             {
-                shouldNotToggle = sndMasterMuted == 1;
+                toggleLock = sndMasterMuted == 1; // If it was already muted before we go AFK, lock all mute/unmute operations. Don't tamper with the player's master volume.
             }
-            if (onsValue == lastState) return;
-            lastState = onsValue;
-
-            Services.PluginLog.Debug("Player state changed: {onsValue}: {ons}", onsValue, player.OnlineStatus.Value.Name.ToString());
-            if(onsValue == 17)
+            
+            if (onlineState == lastOnlineState) return; // Don't do anything if the state hasn't changed.
+            
+            Services.PluginLog.Debug("Player state updated from {lastOnlineState} to {onlineState}: {localised}",lastOnlineState, onlineState, localPlayer.OnlineStatus.Value.Name.ToString());
+            lastOnlineState = onlineState; // Set _lastOnlineState to whatever onlineState now is.
+            
+            if(onlineState == 17) // If AFK, go ahead:
             {
-                Services.PluginLog.Information("Player is AFK.", onsValue, player.OnlineStatus.Value.Name.ToString());
-                if (Configuration.PluginActive && shouldNotToggle == false)
+                Services.PluginLog.Information("Player is AFK.");
+                if (Configuration.PluginActive && toggleLock == false) // If the plugin is actually active and _toggleLock isn't true, go ahead:
                 {
                     Services.PluginLog.Information("Muting master volume.");
-                    Services.GameConfig.Set(Dalamud.Game.Config.SystemConfigOption.IsSndMaster, 1);
+                    Services.GameConfig.Set(Dalamud.Game.Config.SystemConfigOption.IsSndMaster, 1); // Mute
                 }
             } else
             {
-                Services.PluginLog.Information("Player is not AFK.", onsValue, player.OnlineStatus.Value.Name.ToString());
-                if (Configuration.PluginActive && shouldNotToggle == false)
+                Services.PluginLog.Information("Player is no longer AFK.");
+                if (Configuration.PluginActive && toggleLock == false) // If the plugin is actually active and _toggleLock isn't true, go ahead:
                 {
                     Services.PluginLog.Information("Unmuting master volume.");
-                    Services.GameConfig.Set(Dalamud.Game.Config.SystemConfigOption.IsSndMaster, 0);
+                    Services.GameConfig.Set(Dalamud.Game.Config.SystemConfigOption.IsSndMaster, 0); // Unmute
                 }
             }
         }
@@ -96,12 +72,8 @@ public sealed class Plugin : IDalamudPlugin
         Services.Framework.Update -= this.OnFrameworkTick;
         Services.PluginLog.Info("OnFrameworkTick unhooked from Framework.Update");
 
-        WindowSystem.RemoveAllWindows();
-        ConfigWindow.Dispose();
-        CommandManager.RemoveHandler("/afkmute");
-        CommandManager.RemoveHandler("/amt");
-        CommandManager.RemoveHandler("/afkmuteconfig");
-        Services.PluginLog.Info("Goodbye world.");
+        Services.CommandManager.RemoveHandler("/afkmute");
+        Services.CommandManager.RemoveHandler("/am");
     }
    
     private void ToggleStateCommand(string command, string args)
@@ -113,12 +85,4 @@ public sealed class Plugin : IDalamudPlugin
         Services.ChatGui.Print($"Toggled AFKMute {(Configuration.PluginActive ? "on" : "off")}.");
     }
 
-    private void ConfigWindowCommand(string command, string args)
-    {
-        ToggleConfigUI();
-    }
-
-    private void DrawUI() => WindowSystem.Draw();
-
-    public void ToggleConfigUI() => ConfigWindow.Toggle();
 }
