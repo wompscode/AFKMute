@@ -1,0 +1,12 @@
+{
+  "Author": "wompscode",
+  "Name": "AFKMute",
+  "Punchline": "Mutes your game when you're AFK.",
+  "Description": "Mutes your game when you're AFK. /afkmute to toggle.",
+  "ApplicableVersion": "any",
+  "Tags": [
+    "afk",
+    "mute",
+    "qol"
+  ]
+}
