@@ -53,14 +53,20 @@ public sealed class Plugin : IDalamudPlugin
     }
 
     private uint lastState;
-
+    private bool shouldNotToggle = false; 
+    
+    
     public void OnFrameworkTick(IFramework framework)
     {
         var player = Services.ClientState.LocalPlayer;
         if (player != null)
         {
             var onsValue = player.OnlineStatus.Value.RowId;
-            
+            Services.GameConfig.TryGet(Dalamud.Game.Config.SystemConfigOption.IsSndMaster, out uint sndMasterMuted);
+            if (lastState != 17)
+            {
+                shouldNotToggle = sndMasterMuted == 1;
+            }
             if (onsValue == lastState) return;
             lastState = onsValue;
 
@@ -68,7 +74,7 @@ public sealed class Plugin : IDalamudPlugin
             if(onsValue == 17)
             {
                 Services.PluginLog.Information("Player is AFK.", onsValue, player.OnlineStatus.Value.Name.ToString());
-                if (Configuration.PluginActive)
+                if (Configuration.PluginActive && shouldNotToggle == false)
                 {
                     Services.PluginLog.Information("Muting master volume.");
                     Services.GameConfig.Set(Dalamud.Game.Config.SystemConfigOption.IsSndMaster, 1);
@@ -76,7 +82,7 @@ public sealed class Plugin : IDalamudPlugin
             } else
             {
                 Services.PluginLog.Information("Player is not AFK.", onsValue, player.OnlineStatus.Value.Name.ToString());
-                if (Configuration.PluginActive)
+                if (Configuration.PluginActive && shouldNotToggle == false)
                 {
                     Services.PluginLog.Information("Unmuting master volume.");
                     Services.GameConfig.Set(Dalamud.Game.Config.SystemConfigOption.IsSndMaster, 0);
