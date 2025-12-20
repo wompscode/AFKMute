@@ -12,6 +12,7 @@ namespace AFKMute
         [PluginService] internal static IPluginLog PluginLog { get; private set; }
         [PluginService] internal static IChatGui ChatGui { get; private set; }
         [PluginService] internal static IClientState ClientState { get; private set; }
+        [PluginService] internal static IObjectTable ObjectTable { get; private set; }
         [PluginService] internal static ICommandManager CommandManager { get; private set; }
         [PluginService] internal static IFramework Framework { get; private set; }
         [PluginService] internal static IGameConfig GameConfig { get; private set; }
