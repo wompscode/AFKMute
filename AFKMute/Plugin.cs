@@ -1,14 +1,10 @@
 using Dalamud.Game.Command;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
-
-// This is my first plugin, it's not perfect. I just wanted a solution to an issue that I had.
-
 namespace AFKMute;
 public sealed class Plugin : IDalamudPlugin
 {
     public Configuration Configuration { get; init; }
-
     private uint lastOnlineState;
     private bool toggleLock; 
     
@@ -28,13 +24,13 @@ public sealed class Plugin : IDalamudPlugin
 
         lastOnlineState = Configuration.LastKnownState;
         
-        Services.Framework.Update += this.OnFrameworkTick;
-        Services.PluginLog.Info("OnFrameworkTick hooked into Framework.Update");
+        Services.Framework.Update += OnFrameworkTick;
+        //Services.PluginLog.Info("OnFrameworkTick hooked into Framework.Update");
     }
 
     public void OnFrameworkTick(IFramework framework)
     {
-        var localPlayer = Services.ClientState.LocalPlayer; // Grab the current LocalPlayer
+        var localPlayer = Services.ObjectTable.LocalPlayer; // Grab the current LocalPlayer
         if (localPlayer != null) // If it exists, we can go ahead:
         {
             var onlineState = localPlayer.OnlineStatus.Value.RowId; // Get the current OnlineState as a Lumina RowId
@@ -46,26 +42,26 @@ public sealed class Plugin : IDalamudPlugin
                 toggleLock = sndMasterMuted == 1; // If it was already muted before we go AFK, lock all mute/unmute operations. Don't tamper with the player's master volume.
                 Configuration.LastToggleLock = toggleLock; // Save toggleLock to LastToggleLock
             }
-            Services.PluginLog.Debug("LastKnownState: {ConfigurationLastKnownState}, lastOnlineState: {lastOnlineState} onlineState: {onlineState}", Configuration.LastKnownState, lastOnlineState, onlineState);
-            Services.PluginLog.Debug("Player state updated from {lastOnlineState} to {onlineState}: {localised}",lastOnlineState, onlineState, localPlayer.OnlineStatus.Value.Name.ToString());
+            Services.PluginLog.Verbose("LastKnownState: {ConfigurationLastKnownState}, lastOnlineState: {lastOnlineState}, onlineState: {onlineState}", Configuration.LastKnownState, lastOnlineState, onlineState);
+            Services.PluginLog.Verbose("Player state updated from {lastOnlineState} to {onlineState}: {localised}", lastOnlineState, onlineState, localPlayer.OnlineStatus.Value.Name.ToString());
             lastOnlineState = onlineState; // Set _lastOnlineState to whatever onlineState now is.
             Configuration.LastKnownState = onlineState; // Save onlineState to LastKnownState
             Configuration.Save(); // Save this.
             
             if(lastOnlineState == 17) // If AFK, go ahead:
             {
-                Services.PluginLog.Information("Player is AFK.");
+                //Services.PluginLog.Information("Player is AFK.");
                 if (Configuration.PluginActive && toggleLock == false && sndMasterMuted == 0) // If the plugin is actually active and _toggleLock isn't true, go ahead:
                 {
-                    Services.PluginLog.Information("Muting master volume.");
+                    //Services.PluginLog.Information("Muting master volume.");
                     Services.GameConfig.Set(Dalamud.Game.Config.SystemConfigOption.IsSndMaster, 1); // Mute
                 }
             } else
             {
-                Services.PluginLog.Information("Player is no longer AFK.");
+                //Services.PluginLog.Information("Player is no longer AFK.");
                 if (Configuration.PluginActive && toggleLock == false && sndMasterMuted == 1) // If the plugin is actually active and _toggleLock isn't true, go ahead:
                 {
-                    Services.PluginLog.Information("Unmuting master volume.");
+                    //Services.PluginLog.Information("Unmuting master volume.");
                     Services.GameConfig.Set(Dalamud.Game.Config.SystemConfigOption.IsSndMaster, 0); // Unmute
                 }
             }
@@ -78,7 +74,7 @@ public sealed class Plugin : IDalamudPlugin
             {
                 if (Configuration.LastKnownState == 17) // If the last state was AFK, the game was likely muted.
                 {
-                    Services.PluginLog.Information("Unmuting master volume.");
+                    //Services.PluginLog.Information("Unmuting master volume.");
                     Services.GameConfig.Set(Dalamud.Game.Config.SystemConfigOption.IsSndMaster, 0); // Unmute
                     Configuration.LastKnownState = 0; // Set LastKnownState to 0, as now it doesn't really matter.
                     Configuration.Save();
@@ -89,9 +85,8 @@ public sealed class Plugin : IDalamudPlugin
 
     public void Dispose()
     {
-        Services.Framework.Update -= this.OnFrameworkTick;
-        Services.PluginLog.Info("OnFrameworkTick unhooked from Framework.Update");
-
+        Services.Framework.Update -= OnFrameworkTick;
+        //Services.PluginLog.Info("OnFrameworkTick unhooked from Framework.Update");
         Services.CommandManager.RemoveHandler("/afkmute");
         Services.CommandManager.RemoveHandler("/am");
     }
@@ -100,8 +95,7 @@ public sealed class Plugin : IDalamudPlugin
     {
         Configuration.PluginActive = !Configuration.PluginActive;
         Configuration.Save();
-
-        Services.PluginLog.Info("AFKMute state: {state}.", Configuration.PluginActive);
+        //Services.PluginLog.Info("AFKMute state: {state}.", Configuration.PluginActive);
         Services.ChatGui.Print($"Toggled AFKMute {(Configuration.PluginActive ? "on" : "off")}.");
     }
 
